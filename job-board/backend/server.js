@@ -13,7 +13,7 @@ const port = process.env.PORT || 5000;
 
 // CORS configuration
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'https://job-board-iv9x.onrender.com/', 'https://job-board-gold-iota.vercel.app/'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
