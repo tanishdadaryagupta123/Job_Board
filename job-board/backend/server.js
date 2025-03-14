@@ -18,12 +18,14 @@ app.use(cors({
     if(!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error("not allowed by cors"));
+      const corsError = new Error("Not allowed by CORS policy");
+      corsError.name = "CORSError";
+      callback(corsError);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
- credentials: true
+  credentials: true
 }));
 
 // Middleware
@@ -32,7 +34,14 @@ app.use(express.json());
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/job-board';
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, {
+  serverSelectionTimeoutMS: 30000,
+  connectTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 50,
+  retryWrites: true,
+  w: 'majority'
+})
   .then(() => {
     console.log('Connected to MongoDB');
   })
@@ -65,7 +74,44 @@ cron.schedule('0 0 * * *', async () => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+
+  // Handle CORS errors
+  if (err.name === 'CORSError') {
+    return res.status(403).json({
+      status: 'error',
+      type: 'CORS_ERROR',
+      message: 'Cross-Origin Request Blocked: The request was blocked by CORS policy',
+      origin: req.headers.origin
+    });
+  }
+
+  // Handle MongoDB connection errors
+  if (err.name === 'MongooseServerSelectionError' || err.name === 'MongoTimeoutError') {
+    return res.status(503).json({
+      status: 'error',
+      type: 'DB_CONNECTION_ERROR',
+      message: 'Database connection error. Please try again later.'
+    });
+  }
+
+  // Handle validation errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      status: 'error',
+      type: 'VALIDATION_ERROR',
+      message: err.message,
+      errors: err.errors
+    });
+  }
+
+  // Handle other types of errors
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    status: 'error',
+    type: err.name || 'SERVER_ERROR',
+    message: err.message || 'Something went wrong on the server!',
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 // Start server
