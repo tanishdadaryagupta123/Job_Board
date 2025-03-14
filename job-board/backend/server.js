@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const cron = require('node-cron');
-const jobRoutes = require('./routes/jobs');
-const jobCrawler = require('./services/jobCrawler');
+const jobRoutes = require('./src/routes/jobs');
+const jobCrawler = require('./src/services/jobCrawler');
 
 dotenv.config();
 
